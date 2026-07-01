@@ -24,12 +24,14 @@ function Resolve-TeamsWebhookUri {
     )
 
     $parsedUri = $null
+    $webhookLogLabel = Get-TeamsWebhookLogLabel -Uri $Uri
+
     if (-not [System.Uri]::TryCreate($Uri, [System.UriKind]::Absolute, [ref]$parsedUri)) {
-        throw "Teams webhook URI '$Uri' is not a valid absolute URI."
+        throw "Teams webhook URI $webhookLogLabel is not a valid absolute URI."
     }
 
     if ($parsedUri.Scheme -ne 'https') {
-        throw "Teams webhook URI '$Uri' must use HTTPS."
+        throw "Teams webhook URI $webhookLogLabel must use HTTPS."
     }
 
     return $parsedUri
@@ -301,10 +303,10 @@ function Invoke-TeamsWebhook {
 
         for ($index = 0; $index -lt $TeamsWebhookUri.Count; $index++) {
             $uri = $TeamsWebhookUri[$index]
-            $webhookUri = Resolve-TeamsWebhookUri -Uri $uri
             $webhookLogLabel = Get-TeamsWebhookLogLabel -Uri $uri
 
             try {
+                $webhookUri = Resolve-TeamsWebhookUri -Uri $uri
                 Write-Output "Posting Teams notification to webhook $($index + 1) of $($TeamsWebhookUri.Count) ($webhookLogLabel)."
                 Invoke-RestMethod -Uri $webhookUri -Method Post -Body $card -ContentType 'application/json' -ErrorAction Stop | Out-Null
             }
@@ -842,7 +844,7 @@ function Copy-MobileAppMetadata {
     Write-Output "Migrated $($sourceCategories.Count) category link(s) to the new app."
 }
 
-function Invoke-EAMAutoupdate {
+function Invoke-EAMAutoUpdate {
     <#
     .SYNOPSIS
     Publishes newer EAM catalog app versions in Intune and migrates the old configuration.
@@ -1352,4 +1354,4 @@ Write-Output "Connected to Microsoft Graph using managed identity for tenant $($
 #)
 
 # Update and uncomment the sample command below before publishing the runbook.
-# Invoke-EAMAutoupdate -TeamsWebhookUri 'https://contoso.example/webhook' -UpdateESP -ExcludeApps 'draw.io Desktop' -UpdateRings -CommandLineParameters
+# Invoke-EAMAutoUpdate -TeamsWebhookUri 'https://contoso.example/webhook' -UpdateESP -ExcludeApps 'draw.io Desktop' -UpdateRings -CommandLineParameters

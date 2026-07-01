@@ -80,7 +80,7 @@ The managed identity (or app registration) used to run the script requires the f
 ### Basic — Deploy all available updates
 
 ```powershell
-Invoke-EAMAutoupdate
+Invoke-EAMAutoUpdate
 ```
 
 Deploys all available EAM catalog updates, migrates assignments and metadata, and cleans up older superseded versions. No Teams notification is sent.
@@ -88,7 +88,7 @@ Deploys all available EAM catalog updates, migrates assignments and metadata, an
 ### With Teams notification
 
 ```powershell
-Invoke-EAMAutoupdate -TeamsWebhookUri "https://prod-XX.westeurope.logic.azure.com:443/workflows/..."
+Invoke-EAMAutoUpdate -TeamsWebhookUri "https://prod-XX.westeurope.logic.azure.com:443/workflows/..."
 ```
 
 Same as above, but sends an adaptive card to the configured Teams channel for each deployed app.
@@ -96,7 +96,7 @@ Same as above, but sends an adaptive card to the configured Teams channel for ea
 ### With multiple Teams webhooks
 
 ```powershell
-Invoke-EAMAutoupdate -TeamsWebhookUri "https://prod-XX.westeurope.logic.azure.com:443/workflows/...", "https://prod-YY.westeurope.logic.azure.com:443/workflows/..."
+Invoke-EAMAutoUpdate -TeamsWebhookUri "https://prod-XX.westeurope.logic.azure.com:443/workflows/...", "https://prod-YY.westeurope.logic.azure.com:443/workflows/..."
 ```
 
 Sends the adaptive card to each webhook in the array. Useful when you want to notify multiple Teams channels or Power Automate flows.
@@ -156,7 +156,6 @@ Appends `/norestart` to Chrome's install command line (leaving uninstall unchang
 Invoke-EAMAutoUpdate `
     -TeamsWebhookUri "https://prod-XX.westeurope.logic.azure.com:443/workflows/..." `
     -UpdateESP `
-    -UpdateAPDP `
     -ExcludeApps "draw.io Desktop" `
     -UpdateRings `
     -CommandLineParameters
@@ -212,7 +211,7 @@ The EAM catalog report always returns the latest available version. The script d
 That depends on your organization's patching cadence. Running the script daily (e.g. via an Azure Automation schedule) ensures new catalog versions are picked up quickly. Combined with Update Rings you can delay rollout to production groups while still deploying to a pilot group on the same day.
 
 #### Can I run the script manually for testing?
-Yes. You can run `Invoke-EAMAutoupdate` interactively in a PowerShell session. Authenticate first with `Connect-MgGraph -Scopes <required scopes>` instead of `-Identity`, then call the function with your desired parameters.
+Yes. You can run `Invoke-EAMAutoUpdate` interactively in a PowerShell session. Authenticate first with `Connect-MgGraph -Scopes <required scopes>` instead of `-Identity`, then call the function with your desired parameters.
 
 #### Can I use this script with Conditional Access or MFA?
 When running in Azure Automation with a managed identity, Conditional Access and MFA do not apply — the managed identity authenticates directly. For interactive testing, `Connect-MgGraph` will prompt for MFA if your Conditional Access policies require it.

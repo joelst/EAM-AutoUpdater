@@ -6,15 +6,15 @@ When a matching update ring entry is found for an assignment, the script sets th
 
 ## Append Parameter
 
-In order to use the Update Ring feature, append the `-UpdateRings` switch to your `Invoke-EAMAutoupdate` call:
+In order to use the Update Ring feature, append the `-UpdateRings` switch to your `Invoke-EAMAutoUpdate` call:
 
 ```powershell
-Invoke-EAMAutoupdate -TeamsWebhookUri <URI> -UpdateESP -UpdateRings
+Invoke-EAMAutoUpdate -TeamsWebhookUri <URI> -UpdateESP -UpdateRings
 ```
 
 ## Configure the `$UpdateRingSettings` Variable
 
-The `$UpdateRingSettings` variable is an array of `PSCustomObject` entries defined before the `Invoke-EAMAutoupdate` call. Each entry targets a specific app, assignment type, and group combination.
+The `$UpdateRingSettings` variable is an array of `PSCustomObject` entries defined before the `Invoke-EAMAutoUpdate` call. Each entry targets a specific app, assignment type, and group combination.
 
 ### Properties
 
@@ -174,5 +174,5 @@ $UpdateRingSettings = @(
 )
 
 # Update and uncomment the sample command below before publishing the runbook.
-# Invoke-EAMAutoupdate -TeamsWebhookUri 'https://contoso.example/webhook' -UpdateESP -ExcludeApps 'draw.io Desktop' -UpdateRings
+# Invoke-EAMAutoUpdate -TeamsWebhookUri 'https://contoso.example/webhook' -UpdateESP -ExcludeApps 'draw.io Desktop' -UpdateRings
 ```

@@ -45,18 +45,10 @@ To perform the steps listed on this page you need the following permissions:
 
 Now we need to grant the required permissions to the Managed Identity.
 
-| Graph Permission                              | Description                                                                     |
-| --------------------------------------------- | ------------------------------------------------------------------------------- |
-| "DeviceManagementManagedDevices.Read.All"     | Required to read the Win32CatalogAppsUpdate Report                              |
-| "DeviceManagementApps.ReadWrite.All"          | Required to read all Managed Apps / Create, Update and Delete Apps.             |
-| "Group.Read.All"                              | Required to read basic group informations related to the assignments            |
-| "DeviceManagementConfiguration.Read.All"      | Required to read Filter information related to the assignments"                 |
-| "DeviceManagementServiceConfig.ReadWrite.All" | Required in case you want to update the device ESP with the newly released apps |
-
 | Permission                                    | Purpose                                                                                                                                    |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `DeviceManagementManagedDevices.Read.All`     | Required to read the Win32CatalogAppsUpdate Report                                                                                         |
-| `DeviceManagementConfiguration.Read.All`      | Required to read Filter information related to the assignments"                                                                            |
+| `DeviceManagementConfiguration.Read.All`      | Required to read filter information related to the assignments                                                                             |
 | `DeviceManagementApps.ReadWrite.All`          | Read and write mobile apps, assignments, relationships, categories, and the EAM update report                                              |
 | `Group.Read.All`                              | Read Entra ID group properties for assignment migration                                                                                    |
 | `DeviceManagementServiceConfig.ReadWrite.All` | Read and write Enrollment Status Page configurations and assignment filters > **Note:** Some Graph API calls target the **beta** endpoint. |

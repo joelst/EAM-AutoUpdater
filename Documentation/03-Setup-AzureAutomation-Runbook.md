@@ -9,7 +9,7 @@
 
 ## Create Automation Runbook
 
-* On the Automation Account go to the *Proccess Automation* section and select *Runbooks*
+* On the Automation Account go to the *Process Automation* section and select *Runbooks*
 * Select *Create Runbook*
 
 ![Image1](./Screenshots/ar1.png)

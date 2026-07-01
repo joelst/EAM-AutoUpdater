@@ -8,15 +8,15 @@ When a matching entry is found for the app being updated, the script appends the
 
 ## Append Parameter
 
-In order to use the Custom Command Line Parameters feature, append the `-CommandLineParameters` switch to your `Invoke-EAMAutoupdate` call:
+In order to use the Custom Command Line Parameters feature, append the `-CommandLineParameters` switch to your `Invoke-EAMAutoUpdate` call:
 
 ```powershell
-Invoke-EAMAutoupdate -TeamsWebhookUri <URI> -UpdateESP -CommandLineParameters
+Invoke-EAMAutoUpdate -TeamsWebhookUri <URI> -UpdateESP -CommandLineParameters
 ```
 
 ## Configure the `$CustomCommandLineParameters` Variable
 
-The `$CustomCommandLineParameters` variable is an array of `PSCustomObject` entries defined before the `Invoke-EAMAutoupdate` call. Each entry targets a specific app by display name.
+The `$CustomCommandLineParameters` variable is an array of `PSCustomObject` entries defined before the `Invoke-EAMAutoUpdate` call. Each entry targets a specific app by display name.
 
 ### Properties
 
