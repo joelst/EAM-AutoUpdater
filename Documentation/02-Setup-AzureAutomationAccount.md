@@ -2,12 +2,12 @@
 
 This page describes the process of:
 * Setting up the Azure Automation Account which will run the EAM-Publisher runbook.
-* Assigning the required permissions to the managed identity. 
+* Assigning the required permissions to the managed identity.
 
 ## Prerequisites
-To perform the steps listed on this page you need the following permissions: 
+To perform the steps listed on this page you need the following permissions:
 * Contributor permissions on the Ressource Group to create the Automation account
-* Application Administrator permissions to add the Managed Identity permissions. 
+* Application Administrator permissions to add the Managed Identity permissions.
 
 ## Setup the Automation Account
 
@@ -20,21 +20,21 @@ To perform the steps listed on this page you need the following permissions:
 
 ![Image2](./Screenshots/aa2.png)
 
-* Select the 
-    * Subscription & Ressource Group you want to create the Automation Account in. 
+* Select the
+    * Subscription & Ressource Group you want to create the Automation Account in.
 * Configure the Automation Account name
 * Select the Azure Region
 
 ![Image3](./Screenshots/aa3.png)
 
-* Ensure that the *System Assigned* Managed Identity gets created. 
+* Ensure that the *System Assigned* Managed Identity gets created.
 
 ![Image4](./Screenshots/aa4.png)
 
-* Configure the Networking and Tags tab, based on your organizations requirements. 
-* *Review & Create* the Automation Account.  
+* Configure the Networking and Tags tab, based on your organizations requirements.
+* *Review & Create* the Automation Account.
 
-* Once the Account has been created: 
+* Once the Account has been created:
     * Expand the *Acount Settings* section
     * Select *Identity*
     * Copy the Object (Prinicpal Id)
@@ -43,26 +43,26 @@ To perform the steps listed on this page you need the following permissions:
 
 ## Grant permissions to the Managed Identity
 
-Now we need to grant the required permissions to the Managed Identity. 
+Now we need to grant the required permissions to the Managed Identity.
 
-| Graph Permission | Description |
-| ------------ | -------------|
-| "DeviceManagementManagedDevices.Read.All" | Required to read the Win32CatalogAppsUpdate Report |
-| "DeviceManagementApps.ReadWrite.All" | Required to read all Managed Apps / Create, Update and Delete Apps. |
-| "Group.Read.All" | Required to read basic group informations related to the assignments |
-| "DeviceManagementConfiguration.Read.All" | Required to read Filter information related to the assignments"
-| "DeviceManagementConfiguration.ReadWrite.All" | Required in case you want to update the device ESP with the newly released apps |
+| Graph Permission                              | Description                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------- |
+| "DeviceManagementManagedDevices.Read.All"     | Required to read the Win32CatalogAppsUpdate Report                              |
+| "DeviceManagementApps.ReadWrite.All"          | Required to read all Managed Apps / Create, Update and Delete Apps.             |
+| "Group.Read.All"                              | Required to read basic group informations related to the assignments            |
+| "DeviceManagementConfiguration.Read.All"      | Required to read Filter information related to the assignments"                 |
+| "DeviceManagementServiceConfig.ReadWrite.All" | Required in case you want to update the device ESP with the newly released apps |
 
-| Permission | Purpose |
-|---|---|
-| `DeviceManagementManagedDevices.Read.All` | Required to read the Win32CatalogAppsUpdate Report |
-| `DeviceManagementConfiguration.Read.All` | Required to read Filter information related to the assignments" |
-| `DeviceManagementApps.ReadWrite.All` | Read and write mobile apps, assignments, relationships, categories, and the EAM update report |
-| `Group.Read.All` | Read Entra ID group properties for assignment migration |
+| Permission                                    | Purpose                                                                                                                                    |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DeviceManagementManagedDevices.Read.All`     | Required to read the Win32CatalogAppsUpdate Report                                                                                         |
+| `DeviceManagementConfiguration.Read.All`      | Required to read Filter information related to the assignments"                                                                            |
+| `DeviceManagementApps.ReadWrite.All`          | Read and write mobile apps, assignments, relationships, categories, and the EAM update report                                              |
+| `Group.Read.All`                              | Read Entra ID group properties for assignment migration                                                                                    |
 | `DeviceManagementServiceConfig.ReadWrite.All` | Read and write Enrollment Status Page configurations and assignment filters > **Note:** Some Graph API calls target the **beta** endpoint. |
-| `DeviceManagementRBAC.Read.All` | Required to read Scope Tag information associated with Catalog Apps |
+| `DeviceManagementRBAC.Read.All`               | Required to read Scope Tag information associated with Catalog Apps                                                                        |
 
-> **Note:** The `DeviceManagementServiceConfig.ReadWrite.All` permission is only required if you intend to update the application in the ESP. If you don't want to update your ESP profile make sure to remove the permission scope from the below snippet. 
+> **Note:** The `DeviceManagementServiceConfig.ReadWrite.All` permission is only required if you intend to update the application in the ESP. If you don't want to update your ESP profile make sure to remove the permission scope from the below snippet.
 
 You can assign the permissions by using the following PowerShell snippet:
 
@@ -82,14 +82,14 @@ $permissions | ForEach-Object {
     $appRoleAssignment = @{
         ServicePrincipalId = $managedIdentityObjectId
         PrincipalId        = $managedIdentityObjectId
-        ResourceId         = $graphApi.Id 
-        AppRoleId          = $PSItem.Id 
+        ResourceId         = $graphApi.Id
+        AppRoleId          = $PSItem.Id
     }
 
     New-MgServicePrincipalAppRoleAssignment @appRoleAssignment
 }
 ```
-> Add your Managed Identity Object Id to the $managedIdentityObjectId variable. 
+> Add your Managed Identity Object Id to the $managedIdentityObjectId variable.
 
 * Run the PowerShell Script
 * Navigate to the Enterprise App linked to the Managed Identity
@@ -123,13 +123,12 @@ Now we need to add the required Modules to the Automation Account
 
 > Wait for the import to complete, as the following modules will be dependent on the Authentication Module!
 
-Now repeat the steps for the following Modules: 
+Now repeat the steps for the following Modules:
 * Microsoft.Graph.Beta.DeviceManagement.Actions
 * Microsoft.Graph.Beta.Devices.CorporateManagement
 * Microsoft.Graph.Groups
 * Microsoft.Graph.Beta.DeviceManagement
 
-Once the import of all Modules has finished, it should look like this: 
+Once the import of all Modules has finished, it should look like this:
 
 ![Image11](./Screenshots/aa11.png)
-

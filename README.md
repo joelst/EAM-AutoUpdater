@@ -19,7 +19,7 @@ The script is designed to run as an Azure Automation runbook using a managed ide
   - Assignment filter settings (include/exclude mode and filter ID)
   - Delivery optimization priority
   - Notification settings
-  - Auto-update settings for available intent assignments, since the previous package version will remain in the tenant and the assignments are left intact, the auto update setting will also automatically push the update, without any user interaction required. 
+  - Auto-update settings for available intent assignments, since the previous package version will remain in the tenant and the assignments are left intact, the auto update setting will also automatically push the update, without any user interaction required.
 - **Metadata migration**: Copies the following properties from the previous app to the new app:
   - Scope tags (role scope tag IDs)
   - Company Portal featured state
@@ -80,7 +80,7 @@ The managed identity (or app registration) used to run the script requires the f
 ### Basic — Deploy all available updates
 
 ```powershell
-Invoke-EAMAutoupdate 
+Invoke-EAMAutoupdate
 ```
 
 Deploys all available EAM catalog updates, migrates assignments and metadata, and cleans up older superseded versions. No Teams notification is sent.
@@ -169,13 +169,13 @@ Deploys all available updates (except draw.io Desktop), appends any custom comma
 When running as an Azure Automation runbook, authentication uses the managed identity automatically:
 
 ```powershell
-Connect-MgGraph -Identity
+Connect-MgGraph -Identity -NoWelcome
 ```
 
-The script calls `Connect-MgGraph -Identity` at startup. Ensure the Automation Account's managed identity has the required Graph permissions listed above.
+The script calls `Connect-MgGraph -Identity -NoWelcome` at startup, validates that a Graph context was returned, and logs the tenant ID used for the session. Ensure the Automation Account's managed identity has the required Graph permissions listed above.
 
 ## Set up guide
-Follow the following setup guide for more detailed instructions: 
+Follow the following setup guide for more detailed instructions:
 * [Setup Teams Webhook](./Documentation/01-Setup-TeamsWebhook.md)
 * [Setup Azure Automation Account](./Documentation/02-Setup-AzureAutomationAccount.md)
 * [Setup Azure Automation Runbook](./Documentation/03-Setup-AzureAutomation-Runbook.md)
@@ -299,6 +299,3 @@ This script is provided "as is" without any warranties, express or implied, incl
 The authors or copyright holders shall not be liable for any claims, damages, or other liabilities, whether in contract, tort, or otherwise, arising from or in connection with the script or its use.
 
 Always understand the contents and effects of any script from the Internet before running it. It is highly recommended to thoroughly test the script in a safe environment before using it in production.
-
-
-

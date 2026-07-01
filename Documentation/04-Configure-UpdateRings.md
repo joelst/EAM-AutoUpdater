@@ -148,18 +148,31 @@ In order to make the configured variable usable in the script so that it can be 
 
 ### Example 
 ```PowerShell
+Write-Output 'Connecting to Microsoft Graph with the Azure Automation managed identity...'
+
 try {
-    Connect-MgGraph -Identity
+    Connect-MgGraph -Identity -NoWelcome
 }
 catch {
-    throw "Failed to connect to Graph. Error: $_"
+    throw "Failed to connect to Graph with managed identity. Error: $($_.Exception.Message)"
 }
+
+$graphContext = Get-MgContext
+if (-not $graphContext) {
+    throw 'Connected to Microsoft Graph, but no Graph context was returned.'
+}
+
+if (-not $graphContext.TenantId) {
+    throw 'Connected to Microsoft Graph, but the returned context did not include a tenant ID.'
+}
+
+Write-Output "Connected to Microsoft Graph using managed identity for tenant $($graphContext.TenantId)."
 
 $UpdateRingSettings = @(
     [PSCustomObject]@{ApplicationName = 'Chrome for Business 64-bit'; Assignmenttype = 'available'; groupId = '223f4e5b-61a6-47cc-a13c-e2649bc3ad31'; DaysinDelay = '3'; AvailabilityTimeHour = 9; TimeZoneId = 'W. Europe Standard Time' }
     [PSCustomObject]@{ApplicationName = 'Chrome for Business 64-bit'; Assignmenttype = 'available'; groupId = 'adadadad-808e-44e2-905a-0b7873a8a531'; DaysinDelay = '7' }
 )
 
-Invoke-EAMAutoupdate -TeamsWebhookUri <"TeamsWebhookUri"> -UpdateESP -ExcludeApps <"draw.io Desktop"> -UpdateRings
+# Update and uncomment the sample command below before publishing the runbook.
+# Invoke-EAMAutoupdate -TeamsWebhookUri 'https://contoso.example/webhook' -UpdateESP -ExcludeApps 'draw.io Desktop' -UpdateRings
 ```
-

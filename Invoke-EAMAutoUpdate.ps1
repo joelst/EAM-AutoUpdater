@@ -1,5 +1,71 @@
 #Requires -Module Microsoft.Graph.Authentication,Microsoft.Graph.Beta.DeviceManagement.Actions,Microsoft.Graph.Beta.Devices.CorporateManagement,Microsoft.Graph.Groups,Microsoft.Graph.Beta.DeviceManagement
 
+function Resolve-TeamsWebhookUri {
+    <#
+    .SYNOPSIS
+    Validates and converts a Teams webhook string into a URI object.
+
+    .DESCRIPTION
+    Ensures that the provided webhook value is an absolute HTTPS URI before it is
+    used for outbound notification requests.
+
+    .PARAMETER Uri
+    The Teams or Power Automate webhook URI to validate.
+
+    .OUTPUTS
+    System.Uri
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]
+        $Uri
+    )
+
+    $parsedUri = $null
+    if (-not [System.Uri]::TryCreate($Uri, [System.UriKind]::Absolute, [ref]$parsedUri)) {
+        throw "Teams webhook URI '$Uri' is not a valid absolute URI."
+    }
+
+    if ($parsedUri.Scheme -ne 'https') {
+        throw "Teams webhook URI '$Uri' must use HTTPS."
+    }
+
+    return $parsedUri
+}
+
+function Get-TeamsWebhookLogLabel {
+    <#
+    .SYNOPSIS
+    Builds a redacted log label for a Teams webhook URI.
+
+    .DESCRIPTION
+    Returns a host-only representation of the webhook URI so runbook logs can
+    identify the destination without exposing the full secret-bearing URL.
+
+    .PARAMETER Uri
+    The Teams or Power Automate webhook URI to redact for logging.
+
+    .OUTPUTS
+    System.String
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]
+        $Uri
+    )
+
+    $parsedUri = $null
+    if (-not [System.Uri]::TryCreate($Uri, [System.UriKind]::Absolute, [ref]$parsedUri)) {
+        return '[invalid webhook URI]'
+    }
+
+    return "$($parsedUri.Scheme)://$($parsedUri.Host)/..."
+}
+
 function Invoke-TeamsWebhook {
     <#
     .SYNOPSIS
@@ -231,14 +297,19 @@ function Invoke-TeamsWebhook {
             )
         } | ConvertTo-Json -Depth 20
 
-        Write-Output "Sending Teams notification for $DeployedAppDisplayName..."
+        Write-Output "Sending Teams notification for $DeployedAppDisplayName to $($TeamsWebhookUri.Count) webhook(s)..."
 
-        foreach ($uri in $TeamsWebhookUri) {
+        for ($index = 0; $index -lt $TeamsWebhookUri.Count; $index++) {
+            $uri = $TeamsWebhookUri[$index]
+            $webhookUri = Resolve-TeamsWebhookUri -Uri $uri
+            $webhookLogLabel = Get-TeamsWebhookLogLabel -Uri $uri
+
             try {
-                Invoke-MgGraphRequest -Uri $uri -Method Post -Body $card -ContentType 'application/json'
+                Write-Output "Posting Teams notification to webhook $($index + 1) of $($TeamsWebhookUri.Count) ($webhookLogLabel)."
+                Invoke-RestMethod -Uri $webhookUri -Method Post -Body $card -ContentType 'application/json' -ErrorAction Stop | Out-Null
             }
             catch {
-                Write-Warning "Could not send the Teams webhook to $uri. Error: $_"
+                Write-Warning "Could not send Teams notification to webhook $($index + 1) of $($TeamsWebhookUri.Count) ($webhookLogLabel). Error: $($_.Exception.Message)"
             }
         }
     }
@@ -1251,12 +1322,25 @@ function Invoke-EAMAutoupdate {
     }
 }
 
+Write-Output 'Connecting to Microsoft Graph with the Azure Automation managed identity...'
+
 try {
-    Connect-MgGraph -Identity
+    Connect-MgGraph -Identity -NoWelcome
 }
 catch {
-    throw "Failed to connect to Graph. Error: $_"
+    throw "Failed to connect to Graph with managed identity. Error: $($_.Exception.Message)"
 }
+
+$graphContext = Get-MgContext
+if (-not $graphContext) {
+    throw 'Connected to Microsoft Graph, but no Graph context was returned.'
+}
+
+if (-not $graphContext.TenantId) {
+    throw 'Connected to Microsoft Graph, but the returned context did not include a tenant ID.'
+}
+
+Write-Output "Connected to Microsoft Graph using managed identity for tenant $($graphContext.TenantId)."
 
 ### Examples for Update Rings and Custom CommandLineParameters. Uncomment and customize as needed.
 
@@ -1267,7 +1351,5 @@ catch {
 #    [PSCustomObject]@{ApplicationName = 'Chrome for Business 64-bit'; AdditionalInstallParameter = '/test-install'; AdditionalUninstallParameter = '/test-uninstall' }
 #)
 
-Invoke-EAMAutoupdate -TeamsWebhookUri <"TeamsWebhookUri"> -UpdateESP -ExcludeApps <"draw.io Desktop"> -UpdateRings -CommandLineParameters
-
-
-
+# Update and uncomment the sample command below before publishing the runbook.
+# Invoke-EAMAutoupdate -TeamsWebhookUri 'https://contoso.example/webhook' -UpdateESP -ExcludeApps 'draw.io Desktop' -UpdateRings -CommandLineParameters
