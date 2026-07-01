@@ -54,6 +54,8 @@ Now we need to grant the required permissions to the Managed Identity.
 | `DeviceManagementServiceConfig.ReadWrite.All` | Read and write Enrollment Status Page configurations and assignment filters > **Note:** Some Graph API calls target the **beta** endpoint. |
 | `DeviceManagementRBAC.Read.All`               | Required to read Scope Tag information associated with Catalog Apps                                                                        |
 
+> **Note:** `DeviceManagementConfiguration.Read.All` is still documented because the runbook currently reads Intune assignment filters during assignment migration. Re-evaluate this permission only if that filter lookup behavior is removed or changed.
+>
 > **Note:** The `DeviceManagementServiceConfig.ReadWrite.All` permission is only required if you intend to update the application in the ESP. If you don't want to update your ESP profile make sure to remove the permission scope from the below snippet.
 
 You can assign the permissions by using the following PowerShell snippet:

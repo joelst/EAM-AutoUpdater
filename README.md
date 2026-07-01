@@ -61,6 +61,8 @@ The managed identity (or app registration) used to run the script requires the f
 | `DeviceManagementServiceConfig.ReadWrite.All` | Read and write Enrollment Status Page configurations |
 | `DeviceManagementRBAC.Read.All` | Required to read Scope Tag information associated with Catalog Apps |
 
+> **Note:** `DeviceManagementConfiguration.Read.All` is still documented because the runbook currently reads Intune assignment filters during assignment migration. Re-evaluate this permission only if that filter lookup behavior is removed or changed.
+>
 > **Note:** The `DeviceManagementServiceConfig.ReadWrite.All` permission is only required if you intend to update the application in the ESP. If you don't want to update your ESP profile make sure to remove the permission scope from the below snippet.
 
 
