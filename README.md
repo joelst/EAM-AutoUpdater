@@ -17,8 +17,8 @@ The script is designed to run as an Azure Automation runbook using a managed ide
   - Include and exclude group modes
   - All Users / All Devices targets
   - Assignment filter settings (include/exclude mode and filter ID)
-  - Delivery optimization priority
-  - Notification settings
+  - Delivery optimization priority (`notConfigured` = download in background, or `foreground`) from the previous assignment
+  - End-user notification settings (`showAll` / `showReboot` / `hideAll`) from the previous assignment, so toast behavior is preserved on the new version
   - Auto-update settings for available intent assignments, since the previous package version will remain in the tenant and the assignments are left intact, the auto update setting will also automatically push the update, without any user interaction required.
 - **Metadata migration**: Copies the following properties from the previous app to the new app:
   - Scope tags (role scope tag IDs)
@@ -175,10 +175,48 @@ Connect-MgGraph -Identity -NoWelcome
 
 The script calls `Connect-MgGraph -Identity -NoWelcome` at startup, validates that a Graph context was returned, and logs the tenant ID used for the session. Ensure the Automation Account's managed identity has the required Graph permissions listed above.
 
+## Discover potential EAM apps (interactive)
+
+Use [`Find-PotentialEAMApps.ps1`](./Find-PotentialEAMApps.ps1) on an admin workstation to find software that:
+
+1. Appears in **Intune detected apps** on enough devices  
+2. Matches a title in the **Enterprise App Catalog**  
+3. Is not already managed as a `win32CatalogApp` (unless you opt in)  
+
+Candidates are scored so **multi-version installs** and **versions behind the catalog** rank higher (weak self-update signal). You can export a CSV and optionally **add** catalog apps to Intune.
+
+```powershell
+# Read-only discovery
+Install-Module Microsoft.Graph.Authentication -Scope CurrentUser
+.\Find-PotentialEAMApps.ps1 -MinDeviceCount 10 -MinDistinctVersions 2 -ExportPath .\eam-candidates.csv
+
+# Prompt to add selected apps (creates unassigned EAM apps)
+.\Find-PotentialEAMApps.ps1 -MinDeviceCount 10 -AddApps
+
+# Add named apps and assign available to a pilot group (auto-update on; toasts hidden by default)
+.\Find-PotentialEAMApps.ps1 -AddApps -AddAppNames 'Notepad++','7-Zip' -AssignGroupId '<group-object-id>'
+
+# Same, but show all end-user toast notifications on the assignment
+.\Find-PotentialEAMApps.ps1 -AddApps -AddAppNames '7-Zip' -AssignGroupId '<group-object-id>' -AssignmentNotifications showAll
+```
+
+When `-AssignGroupId` is used, new assignments default to:
+
+| Setting | Default | Graph value | Override parameter |
+|---|---|---|---|
+| End-user notifications | Hide all toasts | `hideAll` | `-AssignmentNotifications` (`hideAll`, `showReboot`, `showAll`) |
+| Content download | Background | `notConfigured` | `-AssignmentDeliveryOptimization` (`notConfigured`, `foreground`) |
+
+Later updates by `Invoke-EAMAutoUpdate` copy the previous assignment’s notification and delivery-optimization settings onto the new version (they are not reset to these discovery defaults).
+
+**Delegated Graph scopes:** `DeviceManagementApps.Read.All`, `DeviceManagementManagedDevices.Read.All`, and `DeviceManagementApps.ReadWrite.All` when using `-AddApps`.
+
+This helper is separate from the Automation **update** runbook (`Invoke-EAMAutoUpdate.ps1`), which only maintains apps already under EAM.
+
 ## Set up guide
 Follow the following setup guide for more detailed instructions:
 * [Setup Teams Webhook](./Documentation/01-Setup-TeamsWebhook.md)
-* [Setup Azure Automation Account](./Documentation/02-Setup-AzureAutomationAccount.md)
+* [Setup Azure Automation Account](./Documentation/02-Setup-AzureAutomationAccount.md) (portal) or **[Deploy with Bicep](./infra/README.md)** (new or existing Automation Account + PowerShell 7.2 runtime)
 * [Setup Azure Automation Runbook](./Documentation/03-Setup-AzureAutomation-Runbook.md)
 * [Configure Update Rings](./Documentation/04-Configure-UpdateRings.md)
 * [Configure Custom Command Line Parameters](./Documentation/05-Configure-CustomCommandLineParameters.md)

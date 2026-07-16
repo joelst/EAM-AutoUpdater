@@ -2,7 +2,7 @@
 
 function Resolve-TeamsWebhookUri {
     <#
-    .SYNOPSIS
+    .SYNOPSISa
     Validates and converts a Teams webhook string into a URI object.
 
     .DESCRIPTION
@@ -35,6 +35,78 @@ function Resolve-TeamsWebhookUri {
     }
 
     return $parsedUri
+}
+
+function Get-MobileAppAssignmentSettingValue {
+    <#
+    .SYNOPSIS
+    Reads a named setting from a mobile app assignment Settings object.
+
+    .DESCRIPTION
+    Graph SDK assignment Settings may expose win32-specific fields either as
+    direct properties or under AdditionalProperties, depending on module version
+    and response shape. This helper checks both (case-insensitive) and returns
+    the first non-empty string value, or the supplied default.
+
+    .PARAMETER Settings
+    The assignment Settings object from Get-MgBetaDeviceAppManagementMobileAppAssignment.
+
+    .PARAMETER Names
+    Property name candidates to try (e.g. notifications, Notifications).
+
+    .PARAMETER Default
+    Value returned when no candidate is present.
+    #>
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory = $false)]
+        $Settings,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]
+        $Names,
+
+        [Parameter(Mandatory = $false)]
+        [string]
+        $Default = $null
+    )
+
+    if ($null -eq $Settings) {
+        return $Default
+    }
+
+    foreach ($name in $Names) {
+        $prop = $Settings.PSObject.Properties[$name]
+        if ($prop -and $null -ne $prop.Value -and -not [string]::IsNullOrWhiteSpace([string]$prop.Value)) {
+            return [string]$prop.Value
+        }
+
+        $additional = $Settings.AdditionalProperties
+        if ($null -eq $additional) {
+            continue
+        }
+
+        # Graph SDK AdditionalProperties is typically Dictionary[string,object].
+        # Avoid .Contains(string) — on generic dictionaries PowerShell binds ICollection.Contains(KeyValuePair) and throws.
+        if ($null -ne $additional.PSObject.Properties['Keys']) {
+            foreach ($key in @($additional.Keys)) {
+                if ($key -ieq $name) {
+                    $value = $additional[$key]
+                    if ($null -ne $value -and -not [string]::IsNullOrWhiteSpace([string]$value)) {
+                        return [string]$value
+                    }
+                }
+            }
+        }
+        else {
+            $addProp = $additional.PSObject.Properties[$name]
+            if ($addProp -and $null -ne $addProp.Value -and -not [string]::IsNullOrWhiteSpace([string]$addProp.Value)) {
+                return [string]$addProp.Value
+            }
+        }
+    }
+
+    return $Default
 }
 
 function Get-TeamsWebhookLogLabel {
@@ -854,7 +926,7 @@ function Invoke-EAMAutoUpdate {
     - creates a new Intune app from the latest catalog revision
     - links the new app to the current app through supersedence
     - removes any supersedence chain older than the current app so only N and N-1 remain
-    - migrates existing assignments from the current app to the new app
+    - migrates existing assignments from the current app to the new app (including end-user notification and delivery optimization settings)
     - optionally updates Enrollment Status Pages that track the current app
     - copies scope tags and the app icon
     - optionally sends a Teams notification for the deployment
@@ -1099,11 +1171,38 @@ function Invoke-EAMAutoUpdate {
                             $previousFilterId
                         }
 
+                        # Preserve end-user toast/notification preference from the previous assignment
+                        # (showAll | showReboot | hideAll). Graph may surface this on Settings or AdditionalProperties.
+                        $previousNotifications = Get-MobileAppAssignmentSettingValue `
+                            -Settings $previousVersionAppAssignment.Settings `
+                            -Names @('notifications', 'Notifications') `
+                            -Default 'showAll'
+
+                        $validNotifications = @('showAll', 'showReboot', 'hideAll')
+                        if ($previousNotifications -notin $validNotifications) {
+                            Write-Warning "  Unrecognized notifications value '$previousNotifications' on previous assignment; defaulting to showAll."
+                            $previousNotifications = 'showAll'
+                        }
+
+                        # Preserve delivery optimization (background vs foreground download) from the previous
+                        # assignment. Graph: notConfigured = content download in background (default),
+                        # foreground = content download in foreground.
+                        $previousDeliveryOptimization = Get-MobileAppAssignmentSettingValue `
+                            -Settings $previousVersionAppAssignment.Settings `
+                            -Names @('deliveryOptimizationPriority', 'DeliveryOptimizationPriority') `
+                            -Default 'notConfigured'
+
+                        $validDeliveryOptimization = @('notConfigured', 'foreground')
+                        if ($previousDeliveryOptimization -notin $validDeliveryOptimization) {
+                            Write-Warning "  Unrecognized deliveryOptimizationPriority value '$previousDeliveryOptimization' on previous assignment; defaulting to notConfigured (background download)."
+                            $previousDeliveryOptimization = 'notConfigured'
+                        }
+
                         $settings = @{
                             '@odata.type'                 = '#microsoft.graph.win32CatalogAppAssignmentSettings'
                             installTimeSettings          = $null
-                            deliveryOptimizationPriority = "$($previousVersionAppAssignment.Settings.AdditionalProperties.deliveryOptimizationPriority)"
-                            notifications                = "$($previousVersionAppAssignment.Settings.AdditionalProperties.notifications)"
+                            deliveryOptimizationPriority = $previousDeliveryOptimization
+                            notifications                = $previousNotifications
                             restartSettings              = $null
                         }
 
@@ -1196,7 +1295,7 @@ function Invoke-EAMAutoUpdate {
                             throw "Failed to create the app assignment. Error: $_"
                         }
 
-                        Write-Output "  Migrated assignment: $assignmentMode -> $($assignmentGroup.DisplayName)"
+                        Write-Output "  Migrated assignment: $assignmentMode -> $($assignmentGroup.DisplayName) (notifications=$previousNotifications, deliveryOptimization=$previousDeliveryOptimization)"
                     }
                     else {
                         try {
@@ -1324,6 +1423,74 @@ function Invoke-EAMAutoUpdate {
     }
 }
 
+function Get-ManagedIdentityTokenClaims {
+    <#
+    .SYNOPSIS
+    Best-effort read of the managed identity access-token claims for troubleshooting.
+    #>
+    [CmdletBinding()]
+    param ()
+
+    $claims = [ordered]@{
+        ObjectId = $null
+        AppId    = $null
+        TenantId = $null
+        Roles    = @()
+        Source   = $null
+    }
+
+    try {
+        # Azure Automation / App Service identity endpoint (preferred in runbooks).
+        $identityEndpoint = $env:IDENTITY_ENDPOINT
+        $identityHeader = $env:IDENTITY_HEADER
+        $accessToken = $null
+
+        if ($identityEndpoint -and $identityHeader) {
+            $tokenUri = $identityEndpoint.TrimEnd('/') + '?resource=https://graph.microsoft.com&api-version=2019-08-01'
+            $tokenResponse = Invoke-RestMethod -Method Get -Uri $tokenUri -Headers @{
+                'X-IDENTITY-HEADER' = $identityHeader
+            } -ErrorAction Stop
+            $accessToken = $tokenResponse.access_token
+            $claims.Source = 'IDENTITY_ENDPOINT'
+        }
+        elseif (Get-Command -Name Get-AzAccessToken -ErrorAction SilentlyContinue) {
+            try {
+                $null = Connect-AzAccount -Identity -ErrorAction Stop
+                $azToken = Get-AzAccessToken -ResourceUrl 'https://graph.microsoft.com' -ErrorAction Stop
+                $accessToken = $azToken.Token
+                $claims.Source = 'Get-AzAccessToken'
+            }
+            catch {
+                # Optional path only; ignore when Az is unavailable or identity connect fails.
+            }
+        }
+
+        if (-not $accessToken) {
+            return [PSCustomObject]$claims
+        }
+
+        $payload = $accessToken.Split('.')[1]
+        $payload = $payload.Replace('-', '+').Replace('_', '/')
+        switch ($payload.Length % 4) {
+            2 { $payload += '==' }
+            3 { $payload += '=' }
+        }
+
+        $json = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($payload))
+        $tokenClaims = $json | ConvertFrom-Json
+
+        $claims.ObjectId = $tokenClaims.oid
+        $claims.AppId = if ($tokenClaims.appid) { $tokenClaims.appid } elseif ($tokenClaims.azp) { $tokenClaims.azp } else { $null }
+        $claims.TenantId = $tokenClaims.tid
+        $claims.Roles = @($tokenClaims.roles)
+    }
+    catch {
+        Write-Output "Managed identity token claim lookup failed (non-fatal): $($_.Exception.Message)"
+    }
+
+    return [PSCustomObject]$claims
+}
+
 Write-Output 'Connecting to Microsoft Graph with the Azure Automation managed identity...'
 
 try {
@@ -1343,6 +1510,27 @@ if (-not $graphContext.TenantId) {
 }
 
 Write-Output "Connected to Microsoft Graph using managed identity for tenant $($graphContext.TenantId)."
+Write-Output "Graph context AuthType=$($graphContext.AuthType); ClientId=$($graphContext.ClientId); Account=$($graphContext.Account)"
+
+# Emit identity details so Graph 403s can be matched to Automation Account → Identity → Object ID
+# and to the principal used with Assign-GraphAppRoles.ps1.
+$miClaims = Get-ManagedIdentityTokenClaims
+if ($miClaims.ObjectId -or $miClaims.AppId) {
+    Write-Output "Managed identity ObjectId (oid)=$($miClaims.ObjectId); AppId=$($miClaims.AppId); TokenSource=$($miClaims.Source)"
+    if ($miClaims.Roles -and $miClaims.Roles.Count -gt 0) {
+        $rolePreview = ($miClaims.Roles | Sort-Object) -join ', '
+        Write-Output "Managed identity Graph app roles in token ($($miClaims.Roles.Count)): $rolePreview"
+        if ($miClaims.Roles -notcontains 'DeviceManagementConfiguration.Read.All') {
+            Write-Output "WARNING: Token is missing DeviceManagementConfiguration.Read.All (required for assignment filters). Compare ObjectId to Automation Account system-assigned identity and re-run Assign-GraphAppRoles.ps1 against that ObjectId."
+        }
+    }
+    else {
+        Write-Output 'WARNING: No Graph app roles were present in the managed identity token payload. Directory app-role assignments may be missing, targeting a different identity, or not yet reflected in the token.'
+    }
+}
+else {
+    Write-Output 'Managed identity ObjectId could not be resolved from the token endpoint; use Automation Account → Identity → Object (principal) ID for permission troubleshooting.'
+}
 
 ### Examples for Update Rings and Custom CommandLineParameters. Uncomment and customize as needed.
 

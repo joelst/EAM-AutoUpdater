@@ -4,6 +4,16 @@ This page describes the process of:
 * Setting up the Azure Automation Account which will run the EAM-Publisher runbook.
 * Assigning the required permissions to the managed identity.
 
+## Deploy with Bicep (recommended)
+
+You can create a **new** Automation Account or attach the EAM **PowerShell 7.2 runtime environment** (and Graph modules) to an **existing** account using Bicep:
+
+* See [`infra/README.md`](../infra/README.md) for parameters, deploy commands, and post-deploy steps.
+* Parameter samples: [`infra/parameters/new-account.bicepparam`](../infra/parameters/new-account.bicepparam) and [`infra/parameters/existing-account.bicepparam`](../infra/parameters/existing-account.bicepparam).
+* Graph permissions: [`infra/scripts/Assign-GraphAppRoles.ps1`](../infra/scripts/Assign-GraphAppRoles.ps1)
+
+The portal steps below remain valid if you prefer a fully manual setup.
+
 ## Prerequisites
 To perform the steps listed on this page you need the following permissions:
 * Contributor permissions on the Ressource Group to create the Automation account
